@@ -1,0 +1,13 @@
+interface: "Ethernet"
+network_cidr: "192.168.1.0/24"
+max_fake_hosts: 30
+topology_complexity: medium
+morphing_interval_seconds: 30
+arp_deception: true
+dns_deception: true
+forensic_traps_enabled: true
+threat_intel_output: logs/threat_intel.json
+dashboard_port: 8443
+dashboard_tls_cert: config/certs/server.crt
+dashboard_tls_key: config/certs/server.key
+log_level: INFO

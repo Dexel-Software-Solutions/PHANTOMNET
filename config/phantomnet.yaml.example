@@ -1,0 +1,27 @@
+# PHANTOMNET Configuration
+# Copy: cp config/phantomnet.yaml.example config/phantomnet.yaml
+
+# ── Network ─────────────────────────────────────────────────
+# Linux: use 'ip a' to find your interface name (eth0, wlan0, ens33, eth1 etc.)
+# Kali:  usually eth0 (wired) or wlan0 (wireless)
+interface: eth0
+network_cidr: 192.168.1.0/24
+
+# ── Deception ────────────────────────────────────────────────
+max_fake_hosts: 50
+topology_complexity: medium   # low | medium | high
+morphing_interval_seconds: 30
+arp_deception: true
+dns_deception: true
+
+# ── Forensics ────────────────────────────────────────────────
+forensic_traps_enabled: true
+threat_intel_output: logs/threat_intel.json
+
+# ── Dashboard ────────────────────────────────────────────────
+dashboard_port: 8443
+dashboard_tls_cert: config/certs/server.crt
+dashboard_tls_key: config/certs/server.key
+
+# ── Logging ──────────────────────────────────────────────────
+log_level: INFO    # DEBUG | INFO | WARNING | ERROR

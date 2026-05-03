@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHANTOMNET — Deception Control Center</title>
+<style>
+  :root {
+    --bg: #0a0c10; --surface: #111620; --border: #1e2a3a;
+    --accent: #00d4ff; --accent2: #ff4757; --accent3: #2ed573;
+    --text: #c9d1d9; --text-dim: #6e7681; --warn: #ffa502;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Courier New',monospace; min-height:100vh; }
+
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 28px; background:var(--surface);
+    border-bottom:1px solid var(--border);
+  }
+  .logo { font-size:1.3rem; font-weight:bold; color:var(--accent); letter-spacing:3px; }
+  .logo span { color:var(--accent2); }
+  .status-dot { width:10px; height:10px; border-radius:50%; background:var(--accent3);
+    display:inline-block; margin-right:8px; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding:20px 28px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px; }
+  .card-title { font-size:0.7rem; letter-spacing:2px; color:var(--text-dim);
+    text-transform:uppercase; margin-bottom:10px; }
+  .stat-value { font-size:2.4rem; font-weight:bold; color:var(--accent); }
+  .stat-label { font-size:0.75rem; color:var(--text-dim); margin-top:4px; }
+  .full-width { grid-column:1 / -1; }
+  .half { grid-column:span 2; }
+
+  .event-log { height:220px; overflow-y:auto; font-size:0.78rem; line-height:1.7; }
+  .event-log::-webkit-scrollbar { width:4px; }
+  .event-log::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+  .log-line { padding:3px 0; border-bottom:1px solid #1a1f2a; }
+  .log-line.warn { color:var(--warn); }
+  .log-line.crit { color:var(--accent2); }
+  .log-line.info { color:var(--accent3); }
+  .log-line .ts { color:var(--text-dim); margin-right:8px; }
+
+  .attacker-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .attacker-table th { text-align:left; color:var(--text-dim); font-weight:normal;
+    padding:6px 10px; border-bottom:1px solid var(--border); font-size:0.7rem; letter-spacing:1px; }
+  .attacker-table td { padding:8px 10px; border-bottom:1px solid #151b25; }
+  .badge { padding:2px 8px; border-radius:4px; font-size:0.68rem; font-weight:bold; }
+  .badge-apt { background:#2d1b4e; color:#c084fc; }
+  .badge-scanner { background:#1a2e4a; color:var(--accent); }
+  .badge-lateral { background:#3d1515; color:var(--accent2); }
+  .badge-recon { background:#1a2e1a; color:var(--accent3); }
+  .badge-unknown { background:#1e1e1e; color:var(--text-dim); }
+
+  .topology-canvas { width:100%; height:260px; position:relative; overflow:hidden; }
+
+  /* Developer card */
+  .dev-card {
+    background: linear-gradient(135deg, #0d1825 0%, #111620 100%);
+    border:1px solid #1e3a5a; border-radius:8px; padding:18px;
+  }
+  .dev-avatar {
+    width:48px; height:48px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), #0057ff);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.3rem; font-weight:bold; color:#fff; flex-shrink:0;
+  }
+  .dev-info { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .dev-name { font-size:1rem; font-weight:bold; color:var(--accent); }
+  .dev-company { font-size:0.78rem; color:var(--text-dim); margin-top:2px; }
+  .dev-links { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.75rem; }
+  .dev-link { display:flex; align-items:center; gap:6px; color:var(--text-dim); }
+  .dev-link .lbl { color:var(--text-dim); font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; }
+  .dev-link .val { color:var(--text); }
+
+  footer {
+    text-align:center; padding:14px; color:var(--text-dim);
+    font-size:0.72rem; border-top:1px solid var(--border); margin-top:4px;
+  }
+  footer a { color:var(--accent); text-decoration:none; }
+  footer a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PHANTOM<span>NET</span></div>
+  <div style="display:flex;align-items:center;gap:20px">
+    <span><span class="status-dot"></span>
+    <span id="status-text" style="color:var(--accent3);font-size:0.82rem">ACTIVE</span></span>
+    <span style="font-size:0.78rem;color:var(--text-dim)" id="clock"></span>
+  </div>
+  <div style="font-size:0.75rem;color:var(--text-dim)">Dexel Software Solutions · Sri Lanka 🇱🇰</div>
+</header>
+
+<div class="grid">
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="card-title">Attackers Detected</div>
+    <div class="stat-value" id="stat-attackers">0</div>
+    <div class="stat-label">Active threat actors</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Fake Hosts Active</div>
+    <div class="stat-value" id="stat-hosts" style="color:var(--accent3)">0</div>
+    <div class="stat-label">Deceptive topology nodes</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Traps Triggered</div>
+    <div class="stat-value" id="stat-traps" style="color:var(--accent2)">0</div>
+    <div class="stat-label">Forensic captures</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Topology Morphs</div>
+    <div class="stat-value" id="stat-morphs" style="color:var(--warn)">0</div>
+    <div class="stat-label">Times topology shifted</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Real Hosts Protected</div>
+    <div class="stat-value" id="stat-real" style="color:var(--text)">0</div>
+    <div class="stat-label">Nodes hidden from attackers</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Packets Analyzed</div>
+    <div class="stat-value" id="stat-packets" style="color:var(--accent)">0</div>
+    <div class="stat-label">Total intercepted</div>
+  </div>
+
+  <!-- Attacker table -->
+  <div class="card half">
+    <div class="card-title">Active Threat Actors</div>
+    <table class="attacker-table">
+      <thead>
+        <tr>
+          <th>IP Address</th><th>TTP Class</th><th>Confidence</th>
+          <th>Threat Score</th><th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody id="attacker-tbody">
+        <tr><td colspan="5" style="color:var(--text-dim);text-align:center;padding:20px">
+          No attackers detected</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Live event log -->
+  <div class="card">
+    <div class="card-title">Live Event Log</div>
+    <div class="event-log" id="event-log">
+      <div class="log-line info"><span class="ts" id="init-ts"></span>PHANTOMNET initialized</div>
+      <div class="log-line info"><span class="ts"></span>Waiting for threat activity...</div>
+    </div>
+  </div>
+
+  <!-- Topology canvas -->
+  <div class="card full-width">
+    <div class="card-title">Deceptive Topology Map (Live)</div>
+    <div class="topology-canvas">
+      <canvas id="topo-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Developer card -->
+  <div class="dev-card full-width">
+    <div class="card-title">Developer</div>
+    <div class="dev-info">
+      <div class="dev-avatar">DD</div>
+      <div>
+        <div class="dev-name">Demiyan Dissanayake</div>
+        <div class="dev-company">Dexel Software Solutions · Dankotuwa, Sri Lanka 🇱🇰</div>
+      </div>
+    </div>
+    <div class="dev-links">
+      <div class="dev-link">
+        <span class="lbl">Email</span>
+        <span class="val">dexelsoftwaresolutions@gmail.com</span>
+      </div>
+      <div class="dev-link">
+        <span class="lbl">GitHub</span>
+        <span class="val">github.com/Dexel-Software-Solutions</span>
+      </div>
+      <div class="dev-link">
+        <span class="lbl">WhatsApp</span>
+        <span class="val">+94 72 950 4289</span>
+      </div>
+      <div class="dev-link">
+        <span class="lbl">Username</span>
+        <span class="val">demiyan.dissanayake</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  PHANTOMNET v1.2 &nbsp;|&nbsp;
+  <strong style="color:var(--text)">Demiyan Dissanayake</strong> &nbsp;|&nbsp;
+  Dexel Software Solutions &nbsp;|&nbsp;
+  Dankotuwa, Sri Lanka 🇱🇰 &nbsp;|&nbsp;
+  <a href="mailto:dexelsoftwaresolutions@gmail.com">dexelsoftwaresolutions@gmail.com</a> &nbsp;|&nbsp;
+  For authorized defensive use only
+</footer>
+
+<script>
+// ── Clock ──────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+setInterval(updateClock, 1000); updateClock();
+document.getElementById('init-ts').textContent = new Date().toTimeString().slice(0,8);
+
+// ── State ──────────────────────────────────────────────────
+const state = { attackers:0, hosts:0, traps:0, morphs:0, real:0, packets:0, actors:[] };
+
+function updateStats() {
+  document.getElementById('stat-attackers').textContent = state.attackers;
+  document.getElementById('stat-hosts').textContent     = state.hosts;
+  document.getElementById('stat-traps').textContent     = state.traps;
+  document.getElementById('stat-morphs').textContent    = state.morphs;
+  document.getElementById('stat-real').textContent      = state.real;
+  document.getElementById('stat-packets').textContent   = state.packets.toLocaleString();
+}
+
+// ── Event log ──────────────────────────────────────────────
+function addEvent(msg, level='info') {
+  const log = document.getElementById('event-log');
+  const ts  = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = `log-line ${level}`;
+  div.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  log.prepend(div);
+  while (log.children.length > 80) log.removeChild(log.lastChild);
+}
+
+// ── Attacker table ─────────────────────────────────────────
+function ttpBadge(ttp) {
+  const map = { apt:'badge-apt', port_scanner:'badge-scanner',
+    lateral_mover:'badge-lateral', recon_only:'badge-recon' };
+  const cls = map[ttp] || 'badge-unknown';
+  return `<span class="badge ${cls}">${ttp.replace('_',' ').toUpperCase()}</span>`;
+}
+
+function renderActors() {
+  const tbody = document.getElementById('attacker-tbody');
+  if (!state.actors.length) {
+    tbody.innerHTML='<tr><td colspan="5" style="color:var(--text-dim);text-align:center;padding:20px">No attackers detected</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.actors.map(a => {
+    const sc = a.threat_score > 70 ? 'var(--accent2)' : a.threat_score > 40 ? 'var(--warn)' : 'var(--accent3)';
+    return `<tr>
+      <td style="color:var(--accent);font-family:monospace">${a.ip}</td>
+      <td>${ttpBadge(a.ttp)}</td>
+      <td>${(a.confidence*100).toFixed(0)}%</td>
+      <td style="color:${sc};font-weight:bold">${a.threat_score}/100</td>
+      <td style="color:var(--text-dim)">${a.last_seen}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Topology Canvas ────────────────────────────────────────
+const canvas = document.getElementById('topo-canvas');
+const ctx    = canvas.getContext('2d');
+let nodes = [], animFrame = 0;
+
+function resizeCanvas() {
+  canvas.width  = canvas.parentElement.offsetWidth;
+  canvas.height = 260;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function spawnNodes(count, color, label) {
+  return Array.from({length: count}, () => ({
+    x: Math.random()*(canvas.width-60)+30,
+    y: Math.random()*(canvas.height-60)+30,
+    vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4,
+    r: 6+Math.random()*6, color, label, alpha:0,
+  }));
+}
+
+function initTopology() {
+  nodes = [
+    ...spawnNodes(1,'#00d4ff','GW'),
+    ...spawnNodes(8,'#2ed573','SRV'),
+    ...spawnNodes(6,'#ffa502','WS'),
+    ...spawnNodes(3,'#ff4757','TRAP'),
+  ];
+}
+initTopology();
+
+function drawTopology() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const gw = nodes[0];
+  nodes.forEach((n,i) => {
+    if (i===0) return;
+    n.alpha = Math.min(1, n.alpha+.02);
+    ctx.beginPath(); ctx.moveTo(gw.x,gw.y); ctx.lineTo(n.x,n.y);
+    ctx.strokeStyle=`rgba(30,42,58,${n.alpha})`; ctx.lineWidth=1; ctx.stroke();
+  });
+  nodes.forEach(n => {
+    n.x+=n.vx; n.y+=n.vy;
+    if(n.x<20||n.x>canvas.width-20) n.vx*=-1;
+    if(n.y<20||n.y>canvas.height-20) n.vy*=-1;
+    ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    ctx.fillStyle=n.color+'33'; ctx.fill();
+    ctx.strokeStyle=n.color; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle=n.color; ctx.font='9px Courier New';
+    ctx.textAlign='center'; ctx.fillText(n.label,n.x,n.y+n.r+11);
+  });
+  animFrame++;
+  const pulse=Math.sin(animFrame*.05)*6+10;
+  ctx.beginPath(); ctx.arc(gw.x,gw.y,pulse,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,212,255,0.2)'; ctx.lineWidth=2; ctx.stroke();
+  requestAnimationFrame(drawTopology);
+}
+drawTopology();
+
+// ── API + Simulation ───────────────────────────────────────
+const API_BASE = window.location.origin;
+
+async function fetchStatus() {
+  try {
+    const r = await fetch(`${API_BASE}/api/status`);
+    if(!r.ok) return;
+    const d = await r.json();
+    state.real = d.real_hosts||0; updateStats();
+  } catch {}
+}
+
+async function fetchThreats() {
+  try {
+    const r = await fetch(`${API_BASE}/api/threats`);
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.records&&d.records.length>0) {
+      state.attackers = d.total;
+      state.actors = d.records.map(rec=>({
+        ip: rec.attacker_ip, ttp: rec.ttp_class,
+        confidence: rec.confidence, threat_score: rec.threat_score,
+        last_seen: new Date(rec.last_seen*1000).toTimeString().slice(0,8),
+      }));
+      renderActors();
+    }
+  } catch {}
+}
+
+function simulateLiveData() {
+  state.packets += Math.floor(Math.random()*50+10);
+  if(Math.random()<.04 && state.attackers<5) {
+    state.attackers++;
+    const ttps=['port_scanner','lateral_mover','apt','recon_only','web_attacker'];
+    const ttp = ttps[Math.floor(Math.random()*ttps.length)];
+    const ip  = `${Math.floor(Math.random()*200+10)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*254+1)}`;
+    state.actors.push({ ip, ttp, confidence:0.6+Math.random()*.39,
+      threat_score:Math.floor(Math.random()*60+30),
+      last_seen:new Date().toTimeString().slice(0,8) });
+    state.hosts += Math.floor(Math.random()*20+10);
+    addEvent(`New attacker: ${ip} → ${ttp.replace('_',' ').toUpperCase()}`,'warn');
+    renderActors();
+    nodes.push(...spawnNodes(Math.floor(Math.random()*8+5),'#2ed573','FAKE'));
+    nodes.push(...spawnNodes(2,'#ff4757','TRAP'));
+  }
+  if(Math.random()<.03&&state.attackers>0) {
+    state.morphs++;
+    addEvent('Topology morphed — attacker map invalidated','warn');
+  }
+  if(Math.random()<.015&&state.attackers>0) {
+    state.traps++;
+    addEvent('TRAP TRIGGERED — attacker captured in honeypot!','crit');
+  }
+  updateStats();
+}
+
+setInterval(simulateLiveData, 2000);
+setInterval(()=>{ fetchStatus(); fetchThreats(); }, 5000);
+fetchStatus();
+</script>
+</body>
+</html>
