@@ -515,6 +515,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 **PHANTOMNET v1.3** · Built with ❤️ by **Demiyan Dissanayake** · Dexel Software Solutions · Sri Lanka 🇱🇰
 
-*For authorized defensive use only · MIT License · 2025*
+*For authorized defensive use only · MIT License · 2026*
 
 </div>
